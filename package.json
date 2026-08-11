@@ -1,0 +1,21 @@
+{
+  "name": "beta-api-erp-pdr",
+  "version": "1.0.0",
+  "description": "ตัวอย่าง Backend API ดึงข้อมูล PDR จาก ERP (แยกจาก CMS)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "sync-orders": "node sync-orders.js --daily",
+    "sync-orders-backfill": "node sync-orders.js --backfill"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "mssql": "^10.0.4",
+    "mysql2": "^3.12.0"
+  }
+}

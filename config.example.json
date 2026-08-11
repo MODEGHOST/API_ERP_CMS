@@ -1,0 +1,32 @@
+{
+  "mode": "erp",
+  "port": 3100,
+  "driver": "mssql",
+  "host": "127.0.0.1",
+  "port_db": 1433,
+  "database": "YOUR_ERP_DB",
+  "user": "YOUR_ERP_USER",
+  "password": "YOUR_ERP_PASSWORD",
+  "options": {
+    "encrypt": false,
+    "trustServerCertificate": true
+  },
+  "customer_care": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 3306,
+    "database": "YOUR_CC_DB",
+    "user": "YOUR_CC_USER",
+    "password": "YOUR_CC_PASSWORD",
+    "table": "customer_care",
+    "min_score": 0.82
+  },
+  "cms": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "database": "cms",
+    "user": "root",
+    "password": "",
+    "table": "order_daily_count"
+  }
+}
