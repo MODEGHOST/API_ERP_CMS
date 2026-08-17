@@ -17,9 +17,21 @@ src/
   pdrDb.js           # SQL / ERP  ← แก้ตรงนี้
   orderDb.js         # ดึง PDR/PDW ทีละเดือน
   customerCare.js    # MySQL customer_care (SELECT อย่างเดียว)
+  erpPool.js         # MSSQL connection pool (ค้างใช้ซ้ำ)
+  pdrCache.js        # cache สั้นๆ ตามเลข PDR
+  circuitBreaker.js  # พักยิงเมื่อ ERP พังติดกัน
+  erpRuntime.js      # รวม cache + breaker
   mock-data.json
 sync-orders.js       # ดึงทีละเดือน พัก 20 วิ แล้ว insert CMS
 ```
+
+## กันภาระ ERP
+
+- **Connection pool** — login MSSQL ครั้งเดียวต่อ process แล้วใช้ซ้ำ
+- **PDR cache** — ค่าเริ่มต้นจำผล 10 นาที (`pdr_cache.ttl_seconds` ใน config)
+- **Circuit breaker** — error ติด 3 ครั้งแล้วพัก 60 วินาที (`circuit_breaker` ใน config)
+
+ดูสถานะได้ที่ `GET /health`
 
 ## เรียก API
 

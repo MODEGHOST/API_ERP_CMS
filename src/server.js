@@ -3,8 +3,13 @@
  * mode ใน config.json: "mock" | "erp"
  *
  * GET /api/pdr?pdr_no=...                 ค้นด้วยเลข PDR เท่านั้น (บังคับ)
- * GET /api/orders?from=YYYY-MM-DD&to=...  ดึง PDR/PDW ทีละเดือน ตามวันตีบิล
+ * GET /api/orders?from=YYYY-MM-DD&to=...  ดึง PDC..PDZ ทีละเดือน ตามวันตีบิล
  * GET /health
+ *
+ * ความปลอดภัย ERP:
+ *   - Connection pool ค้างใช้ซ้ำ (ไม่ login ทุกครั้ง)
+ *   - Cache สั้นๆ ตาม pdr_no
+ *   - Circuit breaker พักยิงเมื่อ ERP พังติดกัน
  */
 
 const fs = require("fs");
@@ -13,6 +18,8 @@ const express = require("express");
 const cors = require("cors");
 const { getPdrList } = require("./pdrDb");
 const { getOrderList } = require("./orderDb");
+const { closeErpPool, getErpPoolStatus } = require("./erpPool");
+const { initErpRuntime, getErpRuntime } = require("./erpRuntime");
 
 const ROOT = path.join(__dirname, "..");
 const CONFIG_PATH = path.join(ROOT, "config.json");
@@ -26,15 +33,21 @@ const config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
 const mode =
   String(config.mode || "mock").toLowerCase() === "erp" ? "erp" : "mock";
 
+initErpRuntime(config);
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
+  const { cache, breaker } = getErpRuntime();
   res.json({
     ok: true,
     mode,
     port: config.port || 3100,
+    pool: getErpPoolStatus(),
+    cache: cache.stats(),
+    circuit_breaker: breaker.getStatus(),
   });
 });
 
@@ -50,8 +63,14 @@ app.get("/api/orders", async (req, res) => {
     });
   } catch (err) {
     const status = err.statusCode || 500;
-    if (status >= 500) console.error("[GET /api/orders]", err);
-    res.status(status).json({
+    if (status >= 500 && err.code !== "CIRCUIT_OPEN") {
+      console.error("[GET /api/orders]", err);
+    }
+    const headers = {};
+    if (err.retryAfterMs) {
+      headers["Retry-After"] = String(Math.ceil(err.retryAfterMs / 1000));
+    }
+    res.status(status).set(headers).json({
       ok: false,
       from,
       to,
@@ -78,7 +97,7 @@ app.get("/api/pdr", async (req, res) => {
   }
 
   try {
-    const { data, total } = await getPdrList({
+    const { data, total, cache } = await getPdrList({
       mode,
       config,
       pdrNo,
@@ -89,10 +108,18 @@ app.get("/api/pdr", async (req, res) => {
       pdr_no: pdrNo,
       total,
       data,
+      cache: cache || null,
     });
   } catch (err) {
-    console.error("[GET /api/pdr]", err);
-    res.status(500).json({
+    const status = err.statusCode || 500;
+    if (status >= 500 && err.code !== "CIRCUIT_OPEN") {
+      console.error("[GET /api/pdr]", err);
+    }
+    const headers = {};
+    if (err.retryAfterMs) {
+      headers["Retry-After"] = String(Math.ceil(err.retryAfterMs / 1000));
+    }
+    res.status(status).set(headers).json({
       ok: false,
       pdr_no: pdrNo,
       total: 0,
@@ -103,6 +130,19 @@ app.get("/api/pdr", async (req, res) => {
 });
 
 const port = config.port || 3100;
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`PDR ERP API http://localhost:${port} mode=${mode}`);
+  console.log(
+    "ERP guards: connection pool + pdr cache + circuit breaker (ดู /health)"
+  );
 });
+
+async function shutdown(signal) {
+  console.log(`[shutdown] ${signal}`);
+  server.close(() => {});
+  await closeErpPool();
+  process.exit(0);
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));

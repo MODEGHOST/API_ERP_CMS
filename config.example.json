@@ -11,6 +11,21 @@
     "encrypt": false,
     "trustServerCertificate": true
   },
+  "pool": {
+    "max": 5,
+    "min": 0,
+    "idle_timeout_ms": 30000,
+    "connection_timeout_ms": 15000,
+    "request_timeout_ms": 120000
+  },
+  "pdr_cache": {
+    "ttl_seconds": 600,
+    "max_entries": 500
+  },
+  "circuit_breaker": {
+    "failure_threshold": 3,
+    "cooldown_seconds": 60
+  },
   "customer_care": {
     "enabled": true,
     "host": "127.0.0.1",

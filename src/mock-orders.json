@@ -2,9 +2,16 @@
   { "order_no": "PDR2601-00001", "order_type": "PDR", "shipment_date": "2026-01-12" },
   { "order_no": "PDR2601-00001", "order_type": "PDR", "shipment_date": "2026-01-12" },
   { "order_no": "PDW2601-00010", "order_type": "PDW", "shipment_date": "2026-01-20" },
+  { "order_no": "PDC2601-00002", "order_type": "PDC", "shipment_date": "2026-01-15" },
   { "order_no": "SO2601-00999", "order_type": "SO", "shipment_date": "2026-01-21" },
   { "order_no": "PDR2602-00008", "order_type": "PDR", "shipment_date": "2026-02-03" },
   { "order_no": "PDW2602-00011", "order_type": "PDW", "shipment_date": "2026-02-14" },
+  { "order_no": "PDF2602-00005", "order_type": "PDF", "shipment_date": "2026-02-18" },
   { "order_no": "PDR2608-00100", "order_type": "PDR", "shipment_date": "2026-08-10" },
-  { "order_no": "PDW2608-00040", "order_type": "PDW", "shipment_date": "2026-08-10" }
+  { "order_no": "PDW2608-00040", "order_type": "PDW", "shipment_date": "2026-08-10" },
+  { "order_no": "PDO2608-00001", "order_type": "PDO", "shipment_date": "2026-08-11" },
+  { "order_no": "PDP2608-00002", "order_type": "PDP", "shipment_date": "2026-08-11" },
+  { "order_no": "PDS2608-00003", "order_type": "PDS", "shipment_date": "2026-08-12" },
+  { "order_no": "PDD2608-00004", "order_type": "PDD", "shipment_date": "2026-08-12" },
+  { "order_no": "PDZ2608-00005", "order_type": "PDZ", "shipment_date": "2026-08-12" }
 ]

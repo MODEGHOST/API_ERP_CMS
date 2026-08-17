@@ -35,6 +35,8 @@
 const fs = require("fs");
 const path = require("path");
 const { enrichWithCustomerCare } = require("./customerCare");
+const { getErpPool } = require("./erpPool");
+const { initErpRuntime, getErpRuntime } = require("./erpRuntime");
 
 const MOCK_PATH = path.join(__dirname, "mock-data.json");
 
@@ -131,34 +133,18 @@ async function queryErp(config, pdrNo) {
 
   if (driver === "mssql") {
     const sql = require("mssql");
-    const pool = await sql.connect({
-      server: config.host,
-      port: config.port_db || 1433,
-      database: config.database,
-      user: config.user,
-      password: config.password,
-      options: {
-        encrypt: !!(config.options && config.options.encrypt),
-        trustServerCertificate: !!(
-          config.options && config.options.trustServerCertificate
-        ),
-      },
-    });
+    const pool = await getErpPool(config);
 
-    try {
-      const countReq = pool.request();
-      countReq.input("pdr_no", sql.NVarChar, pdrNo);
-      const countResult = await countReq.query(buildSql({ forCount: true }));
-      const total = Number(countResult.recordset?.[0]?.total || 0);
+    const countReq = pool.request();
+    countReq.input("pdr_no", sql.NVarChar, pdrNo);
+    const countResult = await countReq.query(buildSql({ forCount: true }));
+    const total = Number(countResult.recordset?.[0]?.total || 0);
 
-      const dataReq = pool.request();
-      dataReq.input("pdr_no", sql.NVarChar, pdrNo);
-      const dataResult = await dataReq.query(buildSql({ forCount: false }));
+    const dataReq = pool.request();
+    dataReq.input("pdr_no", sql.NVarChar, pdrNo);
+    const dataResult = await dataReq.query(buildSql({ forCount: false }));
 
-      return { data: dataResult.recordset || [], total };
-    } finally {
-      await pool.close();
-    }
+    return { data: dataResult.recordset || [], total };
   }
 
   if (driver === "mysql") {
@@ -194,13 +180,41 @@ async function getPdrList({ mode, config, pdrNo }) {
   if (!pdrNo) {
     throw new Error("pdr_no is required");
   }
-  // ERP / mock ตามเดิม — ไม่แก้ SQL/connection
-  const result =
-    mode === "erp" ? await queryErp(config, pdrNo) : queryMock(pdrNo);
 
-  // เติม Sale/CS + Grade จาก customer_care (อ่านอย่างเดียว; ล้มเหลวแล้วข้าม)
-  const data = await enrichWithCustomerCare(result.data, config);
-  return { data, total: result.total };
+  initErpRuntime(config);
+  const { cache, breaker } = getErpRuntime();
+
+  // mock ไม่แตะ ERP / breaker
+  if (mode !== "erp") {
+    const result = queryMock(pdrNo);
+    const data = await enrichWithCustomerCare(result.data, config);
+    return { data, total: result.total };
+  }
+
+  const cached = cache.get(pdrNo);
+  if (cached) {
+    return {
+      data: cached.data,
+      total: cached.total,
+      cache: "hit",
+    };
+  }
+
+  breaker.assertCanRequest();
+
+  try {
+    const result = await queryErp(config, pdrNo);
+    const data = await enrichWithCustomerCare(result.data, config);
+    const payload = { data, total: result.total };
+    cache.set(pdrNo, payload);
+    breaker.recordSuccess();
+    return { ...payload, cache: "miss" };
+  } catch (err) {
+    if (err?.code !== "CIRCUIT_OPEN") {
+      breaker.recordFailure();
+    }
+    throw err;
+  }
 }
 
 module.exports = { getPdrList };
